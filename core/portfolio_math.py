@@ -2,21 +2,13 @@
 import numpy as np
 import pandas as pd
 
-TRAINING_STAGES = ("Medical Student", "Resident", "Fellow")
 
 
 def recommended_equity(p):
-    """Recommended % in stocks.
-
-    Rule: 120 - age, because a physician's future paychecks are large and
-    steady (they behave like a bond), so the investment account can hold
-    more stocks than a typical household. Trainees get +5 because nearly all
-    of their wealth is still future earnings. Kept between 30% and 95%.
-    """
-    base = 120 - p.age
-    if p.career_stage in TRAINING_STAGES:
-        base += 5
-    return int(np.clip(round(base / 5) * 5, 30, 95))
+    """Recommended % in stocks today. The full rule (tolerance, capacity, human capital,
+    age) lives in core/risk.py; this wrapper keeps older imports working."""
+    from core.risk import recommended_equity as rec
+    return rec(p)["equity"]
 
 
 def backtest(rets, w_stock, fee=0.0, rebalance="Annual"):
@@ -38,11 +30,18 @@ def backtest(rets, w_stock, fee=0.0, rebalance="Annual"):
     return nominal / price_level
 
 
-def stats(v):
-    """Summary statistics for a growth-of-$1 series."""
+def stats(v, cash_real=None):
+    """Summary statistics for a growth-of-$1 series (real). cash_real = monthly real
+    T-bill returns for the same months, used for the Sharpe ratio."""
     full = pd.concat([pd.Series([1.0]), pd.Series(v.to_numpy())], ignore_index=True)
     monthly = full.pct_change().dropna()
+    if cash_real is not None and len(cash_real) == len(monthly):
+        ex = monthly.to_numpy() - np.asarray(cash_real)
+        sharpe = ex.mean() * 12 / (ex.std() * np.sqrt(12)) if ex.std() > 0 else np.nan
+    else:
+        sharpe = np.nan
     return {
+        "sharpe": sharpe,
         "cagr": full.iloc[-1] ** (12 / len(v)) - 1,
         "vol": monthly.std() * np.sqrt(12),
         "worst12": (full / full.shift(12) - 1).min(),
@@ -68,16 +67,21 @@ def simulate(rets, w_stock, fee, start_value, contributions, years,
     Draws random 12-month chunks of real history (keeps crashes and
     recoveries together), adds yearly contributions, and returns an array
     of shape (n_paths, years + 1) in today's dollars.
+    w_stock: a single stock weight, or one weight per year (a glide path).
     """
     rng = np.random.default_rng(seed)
-    port = w_stock * rets["stocks"].to_numpy() + (1 - w_stock) * rets["bonds"].to_numpy()
-    real = (1 + port) / (1 + rets["inflation"].to_numpy()) - 1 - fee / 12
+    infl = 1 + rets["inflation"].to_numpy()
+    s_real = (1 + rets["stocks"].to_numpy()) / infl - 1
+    b_real = (1 + rets["bonds"].to_numpy()) / infl - 1
 
     n_months = years * 12
     n_blocks = int(np.ceil(n_months / block))
-    starts = rng.integers(0, len(real) - block, size=(n_paths, n_blocks))
+    starts = rng.integers(0, len(s_real) - block, size=(n_paths, n_blocks))
     idx = (starts[:, :, None] + np.arange(block)).reshape(n_paths, -1)[:, :n_months]
-    path_returns = real[idx]
+    # w_stock may be one number (fixed mix) or one number per year (glide path)
+    w = np.asarray(w_stock, dtype=float)
+    w_month = np.repeat(np.resize(w, years), 12) if w.ndim else np.full(n_months, float(w))
+    path_returns = w_month * s_real[idx] + (1 - w_month) * b_real[idx] - fee / 12
 
     # Optional: replay a real historical crash starting at a given month
     if forced is not None:
@@ -95,3 +99,33 @@ def simulate(rets, w_stock, fee, start_value, contributions, years,
         if (m + 1) % 12 == 0:
             wealth[:, (m + 1) // 12] = w
     return wealth
+
+def cash_real(rets):
+    """Monthly real return on T-bills (Fama-French risk-free rate deflated by CPI)."""
+    return ((1 + rets["cash"]) / (1 + rets["inflation"]) - 1).to_numpy()
+
+
+def in_vs_out_of_sample(rets, rule_equity, fee, rebalance):
+    """Split history in half. 'Optimize' the stock/bond mix on the first half (best Sharpe
+    ratio), then see how that choice, the recommended rule and 60/40 do on the unseen half."""
+    years = rets.index.year
+    split = int(years.min() + (years.max() - years.min()) // 2)
+    first, second = rets[years <= split], rets[years > split]
+
+    def sharpe_of(r, w):
+        return stats(backtest(r, w, fee, rebalance), cash_real(r))["sharpe"]
+
+    grid = np.arange(0, 101, 5) / 100
+    best = float(grid[int(np.nanargmax([sharpe_of(first, w) for w in grid]))])
+    rows = []
+    for label, w in [(f"Optimized on {years.min()}-{split} ({best:.0%} stocks)", best),
+                     (f"Recommended rule ({rule_equity:.0%} stocks)", rule_equity),
+                     ("60/40 benchmark", 0.60)]:
+        a = stats(backtest(first, w, fee, rebalance), cash_real(first))
+        b = stats(backtest(second, w, fee, rebalance), cash_real(second))
+        rows.append({"Strategy": label,
+                     f"In-sample return ({years.min()}-{split})": f"{a['cagr']:.1%}",
+                     "In-sample Sharpe": f"{a['sharpe']:.2f}",
+                     f"Out-of-sample return ({split + 1}-{years.max()})": f"{b['cagr']:.1%}",
+                     "Out-of-sample Sharpe": f"{b['sharpe']:.2f}"})
+    return pd.DataFrame(rows), best, split

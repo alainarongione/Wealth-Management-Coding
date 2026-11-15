@@ -2,6 +2,7 @@
 import math
 
 from core import tax_rules as T
+from core.benchmarks import state_income_tax
 
 
 # ---------- Taxes ----------
@@ -100,7 +101,9 @@ def loan_strategies(p, rate, pretax_rate, status, dependents, nonprofit):
 
 # ---------- One year of cash flow ----------
 
-def cash_flow(p, t, pretax_rate, status, state_rate, monthly_expenses, loan_payment_yearly):
+def cash_flow(p, t, pretax_rate, status, state, monthly_expenses, loan_payment_yearly):
+    """One year of household cash flow. `state` is a 2-letter code; state tax uses the
+    Tax Foundation 2026 brackets for that state."""
     md = p.current_income if t < p.training_years_left else p.expected_attending_income
     spouse = p.spouse_income if status == "Married filing jointly" else 0
     gross = md + spouse
@@ -108,10 +111,10 @@ def cash_flow(p, t, pretax_rate, status, state_rate, monthly_expenses, loan_paym
     deduction = T.STANDARD_DEDUCTION[status]
     fed = federal_income_tax(max(0, gross - pretax - deduction), status)
     fica = payroll_tax([md, spouse], status)
-    state = max(0, gross - pretax) * state_rate
-    take_home = gross - pretax - fed - fica - state
+    state_tax = state_income_tax(max(0, gross - pretax), state, status)
+    take_home = gross - pretax - fed - fica - state_tax
     living = monthly_expenses * 12
     leftover = take_home - living - loan_payment_yearly
-    return {"gross": gross, "pretax": pretax, "federal": fed, "fica": fica, "state": state,
+    return {"gross": gross, "pretax": pretax, "federal": fed, "fica": fica, "state": state_tax,
             "take_home": take_home, "loans": loan_payment_yearly, "living": living,
             "leftover": leftover, "agi": gross - pretax}

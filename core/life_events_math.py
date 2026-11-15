@@ -44,6 +44,8 @@ def build_plan(p, ev, save_train, save_att):
             md *= ev["parttime"]["pct"]
         if "jobloss" in ev and age == ev["jobloss"]["age"]:
             md *= 1 - ev["jobloss"]["months"] / 12
+        if "pe_buyout" in ev and age > ev["pe_buyout"]["age"]:
+            md *= 1 - ev["pe_buyout"]["pay_cut"]
         if "disability" in ev and age >= ev["disability"]["age"]:
             md *= ev["disability"]["benefit"]  # 0 if uninsured
 
@@ -59,6 +61,8 @@ def build_plan(p, ev, save_train, save_att):
             save -= ev["house"]["down"]
         if "inheritance" in ev and age == ev["inheritance"]["age"]:
             save += ev["inheritance"]["amount"]
+        if "pe_buyout" in ev and age == ev["pe_buyout"]["age"]:
+            save += ev["pe_buyout"]["payout"] * 0.75  # after ~25% capital-gains tax
 
         contrib.append(save)
         income.append(md)

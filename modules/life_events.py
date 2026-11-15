@@ -4,13 +4,14 @@ from shiny import module, ui, render, reactive
 from shinywidgets import output_widget, render_plotly
 
 from core.market_data import load_returns
-from core.portfolio_math import simulate, recommended_equity
+from core.portfolio_math import simulate
+from core.risk import recommended_equity
 from core.life_events_math import CRASHES, crash_returns, build_plan
 
 RETS = load_returns()
 NAMES = {"fellowship": "Fellowship", "house": "Buy a house", "kids": "Children",
          "parttime": "Go part-time", "disability": "Disability", "jobloss": "Job loss",
-         "inheritance": "Inheritance"}
+         "inheritance": "Inheritance", "pe_buyout": "Private-equity buyout"}
 
 
 def num(id, label, value, step=None):
@@ -56,6 +57,12 @@ def events_ui():
                     ui.input_checkbox("inh_on", "Inheritance", False),
                     num("inh_age", "At age", 50),
                     num("inh_amt", "Amount ($)", 250000, 25000),
+                    ui.hr(),
+                    ui.input_checkbox("pe_on", "Private equity buys the practice "
+                                      "(liquidity event)", False),
+                    num("pe_age", "At age", 45),
+                    num("pe_payout", "Up-front payout ($, pre-tax)", 1500000, 100000),
+                    ui.input_slider("pe_cut", "Pay cut afterwards (%)", 0, 50, 25, step=5),
                 ),
                 ui.accordion_panel(
                     "Replay a market crash",
@@ -89,19 +96,30 @@ def events_ui():
 
 
 @module.server
-def events_server(input, output, session, profile, results):
+def events_server(input, output, session, profile, results, summary):
 
     @reactive.calc
     def settings():
         """Investment settings shared from Tab 2 (with sensible defaults)."""
         r, p = results(), profile()
         return {
-            "equity": r.get("equity", recommended_equity(p) / 100),
+            "equity": r.get("equity", recommended_equity(p)["equity"] / 100),
+            "weights": r.get("weights"),
             "fee": r.get("fee", 0.0005),
             "save_train": r.get("save_train", 0.05),
             "save_att": r.get("save_att", 0.20),
             "goal": r.get("goal", 150000 * 25),
+            "period": r.get("period"),
         }
+
+    @reactive.calc
+    def rets():
+        """Same historical window as Tab 2, so both tabs agree on the baseline odds."""
+        per = settings()["period"]
+        if not per:
+            return RETS
+        yrs = RETS.index.year
+        return RETS[(yrs >= per[0]) & (yrs <= per[1])]
 
     @reactive.calc
     def active_events():
@@ -123,6 +141,9 @@ def events_server(input, output, session, profile, results):
             ev["jobloss"] = {"age": input.job_age(), "months": input.job_months() or 0}
         if input.inh_on():
             ev["inheritance"] = {"age": input.inh_age(), "amount": input.inh_amt() or 0}
+        if input.pe_on():
+            ev["pe_buyout"] = {"age": input.pe_age(), "payout": input.pe_payout() or 0,
+                               "pay_cut": input.pe_cut() / 100}
         return ev
 
     def run(ev, crash=None):
@@ -131,7 +152,8 @@ def events_server(input, output, session, profile, results):
         p, s = profile(), settings()
         contrib, income, years = build_plan(p, ev, s["save_train"], s["save_att"])
         start = max(0.0, p.savings + p.retirement_accounts)
-        wealth = simulate(RETS, s["equity"], s["fee"], start, contrib, years, forced=crash)
+        w = s["weights"] if s["weights"] is not None and len(s["weights"]) == years else s["equity"]
+        wealth = simulate(rets(), w, s["fee"], start, contrib, years, forced=crash)
         return wealth, income, years
 
     def chance(wealth):
@@ -257,3 +279,14 @@ def events_server(input, output, session, profile, results):
                 f"{probs[0]:.0%} if it hits at {ages[0]} vs {probs[-1]:.0%} at {ages[-1]}. "
                 f"This is sequence-of-returns risk. Early on, new savings buy stocks cheaply; "
                 f"near retirement, the portfolio is biggest and has no time to recover.")
+
+    # Share the headline result with the client report
+    @reactive.effect
+    def _publish():
+        ev = active_events()
+        names = [NAMES[k] for k in ev] + ([input.crash()] if input.crash() != "None" else [])
+        new = {"events": names, "events_prob": chance(scenario()[0]),
+               "base_prob": chance(base()[0]),
+               "events_median": float(np.median(scenario()[0][:, -1]))}
+        with reactive.isolate():       # write-only: never read here, so no loops
+            summary.set({**summary(), "events": new})
