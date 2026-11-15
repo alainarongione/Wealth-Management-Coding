@@ -2,6 +2,8 @@ import plotly.graph_objects as go
 from shiny import module, ui, render, reactive
 from shinywidgets import output_widget, render_plotly
 
+from core.theme import vbox, tab_header, STATUS_STYLE, icon
+
 from core import benchmarks as B
 from core import housing as H
 
@@ -33,12 +35,15 @@ def location_ui():
             ui.input_slider("ret", "Return on invested savings (%/yr)", 2.0, 10.0, 6.0, step=0.5),
             width=320,
         ),
+        tab_header('Where to Practice & Home',
+                   'Where should this doctor practice, and should they buy a home?',
+                   'map', 'Doctors can often choose their city. Taxes and prices make the same salary worth very different amounts.'),
         ui.layout_columns(
-            ui.value_box("Your state's rank (of 51)", ui.output_text("rank_box"),
+            vbox("Your state's rank (of 51)", ui.output_text("rank_box"),
                          ui.output_text("rank_sub")),
-            ui.value_box("Best state for your take-home", ui.output_text("best_box"),
+            vbox("Best state for your take-home", ui.output_text("best_box"),
                          ui.output_text("best_sub")),
-            ui.value_box("Buying beats renting after", ui.output_text("be_box"),
+            vbox("Buying beats renting after", ui.output_text("be_box"),
                          ui.output_text("be_sub")),
         ),
         ui.card(ui.card_header("Same paycheck, 51 different results"), output_widget("state_map"),
@@ -151,9 +156,9 @@ def location_server(input, output, session, profile, summary):
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=doc["year"], y=doc["buy_minus_rent"],
                                  name="Physician mortgage (5% down, no PMI)",
-                                 line=dict(color="#2563eb", width=3)))
+                                 line=dict(color="#0e7490", width=3)))
         fig.add_trace(go.Scatter(x=conv["year"], y=conv["buy_minus_rent"],
-                                 name="Conventional (20% down)", line=dict(color="#16a34a", width=3)))
+                                 name="Conventional (20% down)", line=dict(color="#10b981", width=3)))
         fig.add_hline(y=0, line_color="gray", annotation_text="Renting and buying equal")
         fig.update_layout(height=330, margin=dict(l=10, r=10, t=10, b=10),
                           xaxis_title="Years after buying",
@@ -186,7 +191,7 @@ def location_server(input, output, session, profile, summary):
     def rate_plot():
         h = H.mortgage_history()
         fig = go.Figure(go.Scatter(x=h["date"].dt.strftime("%Y-%m-%d"), y=h["value"],
-                                   line=dict(color="#0f766e")))
+                                   line=dict(color="#14b8a6")))
         fig.update_layout(height=250, margin=dict(l=10, r=10, t=10, b=10),
                           yaxis_title="Rate (%)")
         return fig

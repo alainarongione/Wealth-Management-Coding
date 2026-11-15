@@ -3,6 +3,8 @@ import plotly.graph_objects as go
 from shiny import module, ui, render, reactive
 from shinywidgets import output_widget, render_plotly
 
+from core.theme import vbox, tab_header, STATUS_STYLE, icon
+
 from core import tax_rules as T
 from core.cashflow_math import loan_strategies, cash_flow
 from core.benchmarks import STATES
@@ -30,13 +32,16 @@ def cashflow_ui():
             ui.input_numeric("house_years", "Buy house in how many years?", 4, min=1),
             width=340,
         ),
+        tab_header('Cash Flow Vitals',
+                   'Where does every paycheck go, and are the goals on track?',
+                   'wallet', 'Healthy = on track, Monitor = falling behind, Critical = act now.'),
         ui.layout_columns(
-            ui.value_box("Gross pay / month", ui.output_text("gross_box")),
-            ui.value_box("Take-home / month", ui.output_text("takehome_box")),
-            ui.value_box("Total tax rate", ui.output_text("taxrate_box")),
-            ui.value_box("Left to save / month", ui.output_text("left_box")),
+            vbox("Gross pay / month", ui.output_text("gross_box")),
+            vbox("Take-home / month", ui.output_text("takehome_box")),
+            vbox("Total tax rate", ui.output_text("taxrate_box")),
+            vbox("Left to save / month", ui.output_text("left_box")),
         ),
-        ui.card(ui.card_header("Goals dashboard"), ui.output_ui("goals")),
+        ui.card(ui.card_header("Goals dashboard: vital signs of the plan"), ui.output_ui("goals")),
         ui.card(ui.card_header("Where every dollar goes (per year)"), output_widget("sankey")),
         ui.card(ui.card_header("Student loan options"), ui.output_table("loan_table"),
         ui.output_ui("loan_note")),
@@ -281,13 +286,21 @@ def cashflow_server(input, output, session, profile, results, summary):
 
     @render.ui
     def goals():
-        colors = {"On track": "success", "Behind": "warning", "At risk": "danger"}
-        cards = [ui.div(ui.h6(title), ui.span(st, class_=f"badge bg-{colors[st]} mb-2"),
-                        ui.p(detail, class_="small mb-1"),
-                        ui.p(ui.tags.i(fix), class_="small text-muted") if fix else None,
-                        class_="p-2")
-                 for title, st, detail, fix in goal_list()]
-        return ui.layout_columns(*cards, col_widths=[4] * len(cards))
+        cards = []
+        for title, st, detail, fix in goal_list():
+            label, ic, cls = STATUS_STYLE[st]
+            cards.append(ui.div(
+                ui.h6(title),
+                ui.span(icon(ic, 14), label, class_="mdw-pill"),
+                ui.p(detail, class_="small mb-1"),
+                ui.p(ui.tags.i(fix), class_="small text-muted mb-0") if fix else None,
+                class_=f"mdw-goal {cls}"))
+        legend = ui.div(
+            ui.span(ui.tags.i(style="background:#10b981"), "Healthy: on track"),
+            ui.span(ui.tags.i(style="background:#f59e0b"), "Monitor: falling behind"),
+            ui.span(ui.tags.i(style="background:#e11d48"), "Critical: act now"),
+            class_="mdw-legend")
+        return ui.div(legend, ui.layout_columns(*cards, col_widths=[4] * len(cards)))
 
     # Share headline numbers with the client report (write-only, so no loops)
     @reactive.effect

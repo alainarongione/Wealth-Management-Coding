@@ -4,6 +4,8 @@ import plotly.graph_objects as go
 from shiny import module, ui, render, reactive
 from shinywidgets import output_widget, render_plotly
 
+from core.theme import vbox, tab_header, STATUS_STYLE, icon
+
 from core.market_data import load_returns
 from core.portfolio_math import (backtest, stats, yearly_contributions, simulate,
                                  cash_real, in_vs_out_of_sample)
@@ -35,11 +37,14 @@ def portfolio_ui():
                              150000, step=10000),
             width=330,
         ),
+        tab_header('Portfolio Rx',
+                   'What should this doctor invest in, and how might it grow?',
+                   'chart', 'The prescription: a stock/bond mix built from the check-up, tested on 70 years of real history.'),
         ui.layout_columns(
-            ui.value_box("Your mix", ui.output_text("mix_box")),
-            ui.value_box("Real return per year (history)", ui.output_text("cagr_box")),
-            ui.value_box("Worst 12 months (history)", ui.output_text("worst_box")),
-            ui.value_box("Chance of reaching retirement goal", ui.output_text("prob_box")),
+            vbox("Your mix", ui.output_text("mix_box")),
+            vbox("Real return per year (history)", ui.output_text("cagr_box")),
+            vbox("Worst 12 months (history)", ui.output_text("worst_box")),
+            vbox("Chance of reaching retirement goal", ui.output_text("prob_box")),
         ),
         ui.layout_columns(
             ui.card(ui.card_header("Why this mix? From profile to portfolio"),
@@ -154,9 +159,9 @@ def portfolio_server(input, output, session, profile, results):
             x=[s[0] for s in steps], y=[s[1] for s in steps], measure=measures,
             text=[f"{s[1]:+.0f}" if m == "relative" else f"{s[1]:.0f}%"
                   for s, m in zip(steps, measures)],
-            decreasing=dict(marker=dict(color="#dc2626")),
-            increasing=dict(marker=dict(color="#16a34a")),
-            totals=dict(marker=dict(color="#2563eb"))))
+            decreasing=dict(marker=dict(color="#e11d48")),
+            increasing=dict(marker=dict(color="#10b981")),
+            totals=dict(marker=dict(color="#0e7490"))))
         fig.update_layout(height=300, margin=dict(l=10, r=10, t=10, b=10),
                           yaxis_title="% in stocks", showlegend=False)
         return fig
@@ -178,9 +183,9 @@ def portfolio_server(input, output, session, profile, results):
         ages = p.age + np.arange(len(w))
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=ages, y=w, stackgroup="m", name="Stocks",
-                                 line=dict(color="#2563eb")))
+                                 line=dict(color="#0e7490")))
         fig.add_trace(go.Scatter(x=ages, y=100 - w, stackgroup="m", name="Bonds",
-                                 line=dict(color="#94a3b8")))
+                                 line=dict(color="#cbd5e1")))
         fig.update_layout(height=300, margin=dict(l=10, r=10, t=10, b=10), xaxis_title="Age",
                           yaxis=dict(title="% of portfolio", range=[0, 100]),
                           legend=dict(orientation="h", y=-0.25))
@@ -264,14 +269,14 @@ def portfolio_server(input, output, session, profile, results):
         fig.add_trace(go.Scatter(x=ages, y=q[4], line=dict(width=0),
                                  showlegend=False, hoverinfo="skip"))
         fig.add_trace(go.Scatter(x=ages, y=q[0], fill="tonexty", line=dict(width=0),
-                                 fillcolor="rgba(37,99,235,0.15)",
+                                 fillcolor="rgba(14,116,144,0.15)",
                                  name="Unlucky to lucky (10th-90th percentile)"))
         fig.add_trace(go.Scatter(x=ages, y=q[3], line=dict(width=0),
                                  showlegend=False, hoverinfo="skip"))
         fig.add_trace(go.Scatter(x=ages, y=q[1], fill="tonexty", line=dict(width=0),
-                                 fillcolor="rgba(37,99,235,0.35)",
+                                 fillcolor="rgba(14,116,144,0.35)",
                                  name="Middle half (25th-75th)"))
-        fig.add_trace(go.Scatter(x=ages, y=q[2], line=dict(color="rgb(37,99,235)", width=3),
+        fig.add_trace(go.Scatter(x=ages, y=q[2], line=dict(color="rgb(14,116,144)", width=3),
                                  name="Typical (median)"))
         fig.add_hline(y=goal, line_dash="dash", line_color="green",
                       annotation_text=f"Retirement goal ${goal / 1e6:.1f}M")
@@ -297,7 +302,7 @@ def portfolio_server(input, output, session, profile, results):
         final = wealth[:, -1] / 1e6
         cap = np.percentile(final, 98)
         fig = go.Figure(go.Histogram(x=np.minimum(final, cap), nbinsx=40,
-                                     marker_color="#93c5fd", name="Outcomes"))
+                                     marker_color="#a5d8e6", name="Outcomes"))
         fig.add_vline(x=goal / 1e6, line_color="green", line_dash="dash",
                       annotation_text="Goal")
         fig.update_layout(height=220, margin=dict(l=10, r=10, t=10, b=10),

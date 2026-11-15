@@ -6,13 +6,16 @@ from shiny import module, ui, render, reactive
 
 from core import benchmarks as B
 from core import risk as R
+from core.theme import tab_header
 
 CSS = """
 body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:860px;
 margin:24px auto;color:#1f2937;line-height:1.45;padding:0 16px}
-h1{margin-bottom:0}h2{border-bottom:2px solid #e5e7eb;padding-bottom:4px;margin-top:28px}
+h1{margin-bottom:0;color:#0b3c5d}h2{color:#0b3c5d;border-bottom:3px solid #14b8a6;padding-bottom:4px;margin-top:28px;font-size:18px}
+.band{background:linear-gradient(100deg,#0b3c5d,#0e7490);color:#fff;border-radius:14px;padding:18px 22px;margin-bottom:8px}
+.band h1{color:#fff}.band .sub{color:#ccfbf1}
 .sub{color:#6b7280;margin-top:4px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.kpi{border:1px solid #e5e7eb;border-radius:8px;padding:10px}.kpi b{display:block;font-size:20px}
+.kpi{border:1px solid #e5e7eb;border-top:4px solid #14b8a6;border-radius:10px;padding:10px;font-size:13px;color:#64748b}.kpi b{display:block;font-size:20px;color:#0b3c5d}
 table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #e5e7eb;padding:6px;
 text-align:left;font-size:14px}.ok{color:#15803d}.warn{color:#b45309}.bad{color:#b91c1c}
 .disc{font-size:12px;color:#6b7280;border-top:1px solid #e5e7eb;margin-top:30px;padding-top:8px}
@@ -62,7 +65,7 @@ def build_report(p, results, summary):
 
     goal_rows = "".join(
         f"<tr><td>{e(t)}</td><td class='{ {'On track': 'ok', 'Behind': 'warn'}.get(s, 'bad') }'>"
-        f"{e(s)}</td><td>{e(d)}</td></tr>" for t, s, d, _ in cash.get("goals", []))
+        f"{e({'On track': 'Healthy', 'Behind': 'Monitor'}.get(s, 'Critical'))}</td><td>{e(d)}</td></tr>" for t, s, d, _ in cash.get("goals", []))
 
     port = ""
     if "prob" in results:
@@ -90,9 +93,9 @@ def build_report(p, results, summary):
 
     return f"""<!DOCTYPE html><html><head><meta charset='utf-8'>
 <title>MD Wealth plan: {e(p.name)}</title><style>{CSS}</style></head><body>
-<h1>MD Wealth plan for {e(p.name)}</h1>
+<div class='band'><h1>&#9829; MD Wealth plan for {e(p.name)}</h1>
 <p class='sub'>{e(p.specialty)} · {e(p.career_stage)} · age {p.age} · {e(B.STATES.get(p.state, p.state))}
- · prepared {dt.date.today():%B %d, %Y}</p>
+ · prepared {dt.date.today():%B %d, %Y}</p></div>
 
 <h2>1. Where you stand</h2>
 <div class='grid'>{kpi('Net worth', money(p.net_worth))}
@@ -130,6 +133,8 @@ differ. Consult a licensed professional before acting.</p>
 @module.ui
 def report_ui():
     return ui.div(
+        tab_header("Client Report", "The take-home summary: one page with the whole plan.", "file",
+                   "Download it, open it in any browser, and print to PDF to hand to the client."),
         ui.layout_columns(
             ui.p("A one-page summary of every tab, ready to send to the client. Download it, "
                  "open it in a browser, and print to PDF if needed."),

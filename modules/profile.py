@@ -3,6 +3,8 @@ import plotly.graph_objects as go
 from shiny import module, ui, render, reactive
 from shinywidgets import output_widget, render_plotly
 
+from core.theme import vbox, tab_header, STATUS_STYLE, icon
+
 from core import benchmarks as B
 from core import risk as R
 from core.cashflow_math import cash_flow
@@ -44,13 +46,16 @@ def profile_ui():
             ui.p("Everything entered here flows into every other tab.", class_="small text-muted"),
             width=260,
         ),
+        tab_header('Check-up: Client Profile',
+                   'Who is this doctor, and how healthy are their finances today?',
+                   'stethoscope', 'Load a sample doctor in the sidebar, or type your own numbers. Everything flows into the other tabs.'),
         ui.layout_columns(
-            ui.value_box("Net worth", ui.output_text("net_worth"), ui.output_text("nw_pct_txt")),
-            ui.value_box("Savings rate (after tax)", ui.output_text("savings_rate"),
+            vbox("Net worth", ui.output_text("net_worth"), ui.output_text("nw_pct_txt")),
+            vbox("Savings rate (after tax)", ui.output_text("savings_rate"),
                          ui.output_text("savings_sub")),
-            ui.value_box("Debt / income", ui.output_text("debt_ratio")),
-            ui.value_box("Time horizon", ui.output_text("horizon"), ui.output_text("horizon_sub")),
-            ui.value_box("Human capital", ui.output_text("hc_box"), ui.output_text("hc_sub")),
+            vbox("Debt / income", ui.output_text("debt_ratio")),
+            vbox("Time horizon", ui.output_text("horizon"), ui.output_text("horizon_sub")),
+            vbox("Human capital", ui.output_text("hc_box"), ui.output_text("hc_sub")),
             col_widths=[3, 2, 2, 2, 3],
         ),
         ui.layout_columns(
@@ -107,7 +112,7 @@ def profile_ui():
             ui.card_header("Risk tolerance (what you can stand) vs. risk capacity "
                            "(what your finances can absorb)"),
             ui.layout_columns(
-                ui.div(*quiz),
+                ui.div(*quiz, class_="mdw-quiz"),
                 ui.div(output_widget("risk_plot"), ui.output_ui("risk_text")),
                 col_widths=[5, 7],
             ),
@@ -248,9 +253,9 @@ def profile_server(input, output, session, profile):
         vals = [row[f"p{x}"] for x in pts]
         fig = go.Figure()
         fig.add_trace(go.Bar(x=[f"{x}th" for x in pts], y=vals, name=f"U.S. households {group}",
-                             marker_color="#93c5fd",
+                             marker_color="#a5d8e6",
                              hovertemplate="%{x} percentile: $%{y:,.0f}<extra></extra>"))
-        fig.add_hline(y=p.net_worth, line_color="#dc2626", line_width=3,
+        fig.add_hline(y=p.net_worth, line_color="#e11d48", line_width=3,
                       annotation_text=f"{p.name}: {money(p.net_worth)}")
         fig.update_layout(height=300, margin=dict(l=10, r=10, t=30, b=10),
                           yaxis_title="Net worth ($)", xaxis_title="Percentile (SCF 2025)",
@@ -294,7 +299,7 @@ def profile_server(input, output, session, profile):
         r = rec()
         fig = go.Figure(go.Bar(
             y=["Risk capacity", "Risk tolerance"], x=[r["capacity"], r["tolerance"]],
-            orientation="h", marker_color=["#0f766e", "#7c3aed"],
+            orientation="h", marker_color=["#14b8a6", "#6366f1"],
             text=[f"{r['capacity']}/100", f"{r['tolerance']}/100"], textposition="inside"))
         fig.update_layout(height=170, margin=dict(l=10, r=10, t=10, b=10),
                           xaxis=dict(range=[0, 100], title="0 = very cautious / fragile, "
@@ -324,7 +329,7 @@ def profile_server(input, output, session, profile):
         ages, fw, h = R.balance_sheet_path(p, contrib)
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=ages, y=fw, stackgroup="w", name="Financial wealth",
-                                 line=dict(color="#2563eb")))
+                                 line=dict(color="#0e7490")))
         fig.add_trace(go.Scatter(x=ages, y=h, stackgroup="w", name="Human capital (future pay)",
                                  line=dict(color="#f59e0b")))
         fig.update_layout(height=330, margin=dict(l=10, r=10, t=10, b=10), xaxis_title="Age",
@@ -350,10 +355,10 @@ def profile_server(input, output, session, profile):
         p = profile()
         s = B.survival_curve(p.age, p.sex)
         plan = B.planning_age(p.age, p.sex)
-        fig = go.Figure(go.Scatter(x=s.index, y=s.values * 100, line=dict(color="#0f766e", width=3),
+        fig = go.Figure(go.Scatter(x=s.index, y=s.values * 100, line=dict(color="#14b8a6", width=3),
                                    hovertemplate="Age %{x}: %{y:.0f}% chance alive<extra></extra>"))
         fig.add_vline(x=p.target_retire_age, line_dash="dot", annotation_text="Retire")
-        fig.add_vline(x=plan, line_dash="dash", line_color="#dc2626",
+        fig.add_vline(x=plan, line_dash="dash", line_color="#e11d48",
                       annotation_text=f"Plan to {plan}")
         fig.update_layout(height=330, margin=dict(l=10, r=10, t=10, b=10), xaxis_title="Age",
                           yaxis_title="Chance still alive (%)")

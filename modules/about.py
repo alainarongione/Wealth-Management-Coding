@@ -1,6 +1,8 @@
 """About, methods and data sources (cited inside the app, as the assignment requires)."""
 from shiny import ui
 
+from core.theme import tab_header
+
 SOURCES = [
     ("CRSP value-weighted market return (monthly)", "WRDS: crsp.msi (vwretd)",
      "Stock returns for backtests, Monte Carlo and crash replays"),
@@ -51,6 +53,7 @@ ASSUMPTIONS = [
 def about_ui():
     rows = "".join(f"<tr><td>{a}</td><td>{b}</td><td>{c}</td></tr>" for a, b, c in SOURCES)
     return ui.div(
+        tab_header("Sources & Methods", "Where every number comes from, and what we assumed.", "info"),
         ui.h3("MD Wealth: built for physicians"),
         ui.p("Physicians start earning 7-15 years late, carry $200k+ of student debt, then see "
              "one of the largest income jumps of any profession. Their biggest asset for most of "

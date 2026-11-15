@@ -3,6 +3,8 @@ import plotly.graph_objects as go
 from shiny import module, ui, render, reactive
 from shinywidgets import output_widget, render_plotly
 
+from core.theme import vbox, tab_header, STATUS_STYLE, icon
+
 from core.market_data import load_returns
 from core.portfolio_math import simulate
 from core.risk import recommended_equity
@@ -74,11 +76,14 @@ def events_ui():
             ),
             width=340,
         ),
+        tab_header('Stress Test: Life Events',
+                   'What happens to the plan when life happens?',
+                   'pulse', 'Tick events in the sidebar. Green bars help the plan, red bars hurt it.'),
         ui.layout_columns(
-            ui.value_box("Chance of reaching goal: original plan", ui.output_text("base_box")),
-            ui.value_box("Chance with these events", ui.output_text("event_box")),
-            ui.value_box("Change", ui.output_text("change_box")),
-            ui.value_box("Typical portfolio at retirement", ui.output_text("median_box")),
+            vbox("Chance of reaching goal: original plan", ui.output_text("base_box")),
+            vbox("Chance with these events", ui.output_text("event_box")),
+            vbox("Change", ui.output_text("change_box")),
+            vbox("Typical portfolio at retirement", ui.output_text("median_box")),
         ),
         ui.card(ui.card_header("Original plan vs. plan with life events (today's dollars)"),
                 output_widget("fan_plot"), ui.output_text("plan_note")),
@@ -203,9 +208,9 @@ def events_server(input, output, session, profile, results, summary):
         fig.add_trace(go.Scatter(x=ages, y=q[2], line=dict(width=0), showlegend=False,
                                  hoverinfo="skip"))
         fig.add_trace(go.Scatter(x=ages, y=q[0], fill="tonexty", line=dict(width=0),
-                                 fillcolor="rgba(234,88,12,0.18)",
+                                 fillcolor="rgba(245,158,11,0.18)",
                                  name="With events: unlucky to lucky (10th-90th)"))
-        fig.add_trace(go.Scatter(x=ages, y=q[1], line=dict(color="rgb(234,88,12)", width=3),
+        fig.add_trace(go.Scatter(x=ages, y=q[1], line=dict(color="rgb(217,119,6)", width=3),
                                  name="With events: typical"))
         fig.add_trace(go.Scatter(x=ages, y=np.median(bw, axis=0),
                                  line=dict(color="gray", width=2, dash="dash"),
@@ -241,7 +246,7 @@ def events_server(input, output, session, profile, results, summary):
             deltas.append((chance(run({}, crash_forced())[0]) - b) * 100)
         fig = go.Figure(go.Bar(
             x=deltas, y=labels, orientation="h",
-            marker_color=["#16a34a" if d >= 0 else "#dc2626" for d in deltas],
+            marker_color=["#10b981" if d >= 0 else "#e11d48" for d in deltas],
             text=[f"{d:+.0f}" for d in deltas], textposition="outside"))
         fig.update_layout(xaxis_title="Change in chance of reaching goal (percentage points)",
                           height=360, margin=dict(l=10, r=30, t=10, b=10))
@@ -264,7 +269,7 @@ def events_server(input, output, session, profile, results, summary):
     def timing_plot():
         name, ages, probs = timing()
         fig = go.Figure(go.Scatter(x=ages, y=[x * 100 for x in probs], mode="lines+markers",
-                                   line=dict(color="#dc2626", width=3), name=name))
+                                   line=dict(color="#e11d48", width=3), name=name))
         fig.add_hline(y=chance(run(active_events())[0]) * 100,
                       line_dash="dash", line_color="gray", annotation_text="No crash")
         fig.update_layout(xaxis_title=f"Age when the {name} hits",
