@@ -12,23 +12,40 @@ module is built around that path.
 > financial, tax, legal or investment advice. The disclaimer also appears in the app (welcome
 > pop-up, page footer, About tab and the downloadable report).
 
-## Setup
+## Setup (about 2 minutes)
 
-1. Install Python 3.12+ and Positron.
-2. Clone this repository and open the folder in Positron.
-3. In the Terminal, install the packages:
+1. Install Python 3.12 or 3.13 from python.org (on Windows, tick **"Add python.exe to PATH"**).
+2. In Positron: **File → Open Folder** and choose this project folder (the one that contains
+   `app.py`).
+3. Open the Terminal (**Terminal → New Terminal**) and install the packages:
    ```
    pip install -r requirements.txt
    ```
-4. Run the app. Open `app.py` and click **Run Shiny App**, or in the Terminal:
+4. Run the app: open `app.py` and click **Run Shiny App** (▶ at the top of the editor), or in
+   the Terminal:
    ```
    shiny run --reload app.py
    ```
-5. Pick a saved client in the sidebar of Tab 1 (for example *Dr_Maya_Chen*) and click **Load**.
+   Then open http://127.0.0.1:8000 if it doesn't open by itself.
+5. In the **Check-up** tab sidebar, choose a saved client (for example *Dr_Maya_Chen*) and
+   click **Load**.
 
-All data is already cached in `data/`, so the app never needs a WRDS or internet connection.
-To refresh the market data, run `python fetch_data.py` (it asks for your WRDS username and
-password in the terminal; the password is never stored in code).
+All data is already cached in `data/`, so the app needs no WRDS login and no internet
+connection. To refresh the market data (optional), run `pip install -r requirements-fetch.txt`
+and then `python fetch_data.py`. It asks for your WRDS username and password in the terminal,
+and the password is never stored in code.
+
+### Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `Error: app.py not found` / `requirements.txt not found` | The Terminal is in the wrong folder. `cd` into the folder that contains `app.py`. |
+| `shiny` or `pip` "is not recognized" (Windows) | Use `py -m pip install -r requirements.txt` and `py -m shiny run --reload app.py`. |
+| "Python was not found; run without arguments to install from the Microsoft Store" | Use `py` instead of `python`, or turn off the python.exe aliases in Settings → Apps → Advanced app settings → App execution aliases. |
+| `DLL load failed ... An Application Control policy has blocked this file` | Windows Smart App Control blocked a package in a virtual environment Positron created. Run `deactivate`, then use your main Python (`py -m shiny run --reload app.py`). |
+| `No module named ...` | The packages went to a different Python. Run `py -m pip install -r requirements.txt` with the same command you use to run the app. |
+| Browser says "refused to connect" | The app isn't running. Start it and wait for `Application startup complete`, then refresh. |
+| `address already in use` | The app is already running in another Terminal. Stop it with Ctrl+C, or add `--port 8001`. |
 
 ## What the app does
 

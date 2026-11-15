@@ -1,7 +1,6 @@
-shiny
-shinywidgets
-plotly
-pandas
-numpy
-jinja2
-psycopg[binary]
+# Packages needed to RUN the app (all data is already cached in data/)
+shiny>=1.0
+shinywidgets>=0.3
+plotly>=5.15
+pandas>=2.0
+numpy>=1.24
